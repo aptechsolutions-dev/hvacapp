@@ -107,7 +107,11 @@ def init_db():
         # If you had data before Phase 1, it might have NULL company_id.
         # We'll assign everything to the first company if it exists (or later during setup).
         conn.commit()
-        init_db()
+
+
+        
+#  runs once when app imports (Render + gunicorn)
+init_db()
 
 
 def parse_date_yyyy_mm_dd(s: str) -> str | None:
