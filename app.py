@@ -5,6 +5,8 @@ from pathlib import Path
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 
+import os
+
 app = Flask(__name__)
 app.secret_key = "change-this-to-a-long-random-string"
 
@@ -46,7 +48,7 @@ def init_db():
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                company_id INTEGER NOT NULL,
+                company_id INTEGER,
                 username TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 role TEXT NOT NULL DEFAULT 'admin',
@@ -107,11 +109,53 @@ def init_db():
         # If you had data before Phase 1, it might have NULL company_id.
         # We'll assign everything to the first company if it exists (or later during setup).
         conn.commit()
+        
+
+
+def ensure_super_admin():
+    with get_db() as conn:
+        # 1) Make sure the "owner" company exists
+        row = conn.execute("SELECT id FROM companies WHERE name=?", ("APtech Solutions",)).fetchone()
+        if row:
+            owner_company_id = row["id"]
+        else:
+            conn.execute(
+                "INSERT INTO companies (name, created_at) VALUES (?, ?)",
+                ("APtech Solutions", datetime.now().isoformat())
+            )
+            conn.commit()
+            owner_company_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+
+        # 2) Make sure super admin exists
+        exists = conn.execute(
+            "SELECT 1 FROM users WHERE role='super_admin' LIMIT 1"
+        ).fetchone()
+
+        if not exists:
+            ppassword = os.environ.get("SUPER_ADMIN_PASSWORD")
+        if not password:
+    raise RuntimeError("SUPER_ADMIN_PASSWORD is not set")
+            conn.execute(
+                """
+                INSERT INTO users (company_id, username, password_hash, role, created_at)
+                VALUES (?, ?, ?, 'super_admin', ?)
+                """,
+                (
+                    owner_company_id,
+                    "aptech_owner",
+                    generate_password_hash(password),
+                    datetime.now().isoformat()
+                )
+            )
+            conn.commit()
+
 
 
         
 #  runs once when app imports (Render + gunicorn)
+
 init_db()
+ensure_super_admin()
 
 
 def parse_date_yyyy_mm_dd(s: str) -> str | None:
