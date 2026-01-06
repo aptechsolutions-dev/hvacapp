@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workflow Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .badge-soft { background: #f1f3f5; color: #111; border: 1px solid #dee2e6; }
+    .table td { vertical-align: middle; }
+  </style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <span class="navbar-brand">{{ company_name }} — Workflow</span>
+
+
+    <div class="ms-auto d-flex align-items-center gap-3">
+      <span class="navbar-text text-white-50 d-none d-sm-inline">
+        Today: {{ today }}
+      </span>
+
+      <form action="/logout" method="post" class="mb-0">
+        <button class="btn btn-outline-light btn-sm" type="submit">
+          Logout
+        </button>
+      </form>
+    </div>
+  </div>
+</nav>
+
+
+<div class="container py-4"><form action="/logout" method="post" class="ms-auto">
+  <button class="btn btn-outline-light btn-sm" type="submit">Logout</button>
+</form>
+
+
+  <!-- Stats cards -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Leads today</div>
+          <div class="fs-3 fw-semibold">{{ leads_today }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Jobs scheduled today</div>
+          <div class="fs-3 fw-semibold">{{ jobs_today }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Missed (New) leads</div>
+          <div class="fs-3 fw-semibold">{{ missed_leads|length }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">Unpaid total</div>
+          <div class="fs-3 fw-semibold">${{ "%.2f"|format(unpaid_total) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts + Add lead -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">Overdue Invoices</div>
+        <div class="card-body">
+          {% if overdue_invoices|length == 0 %}
+            <div class="text-muted">No overdue invoices 🎉</div>
+          {% else %}
+            <ul class="mb-0">
+              {% for inv in overdue_invoices %}
+                <li>Invoice #{{ inv.id }} — ${{ "%.2f"|format(inv.amount) }} (due {{ inv.due_date }})</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white fw-semibold">Quick Add Lead</div>
+        <div class="card-body">
+          <form action="/add_lead" method="post" class="row g-2">
+            <div class="col-md-6">
+              <input class="form-control" name="name" placeholder="Customer name" required>
+            </div>
+            <div class="col-md-6">
+              <input class="form-control" name="phone" placeholder="Phone" required>
+            </div>
+            <div class="col-md-6">
+              <input class="form-control" name="service_type" placeholder="Service type (HVAC/Plumbing)">
+            </div>
+            <div class="col-md-6">
+              <input class="form-control" name="source" placeholder="Source (Google/Yelp/Referral)">
+            </div>
+            <div class="col-12">
+              <input class="form-control" name="address" placeholder="Address (optional)">
+            </div>
+            <div class="col-12">
+              <textarea class="form-control" name="notes" placeholder="Notes (optional)" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <button class="btn btn-primary w-100" type="submit">Add Lead</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-leads" type="button">Leads</button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-jobs" type="button">Jobs</button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-invoices" type="button">Invoices</button>
+    </li>
+  </ul>
+
+  <div class="tab-content bg-white border border-top-0 p-3 shadow-sm">
+
+    <!-- Leads -->
+    <div class="tab-pane fade show active" id="tab-leads">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th><th>Customer</th><th>Phone</th><th>Service</th><th>Source</th><th>Status</th><th style="min-width:320px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lead in leads %}
+            <tr>
+              <td>{{ lead.id }}</td>
+              <td>
+                <div class="fw-semibold">{{ lead.name }}</div>
+                <div class="text-muted small">{{ lead.address or "" }}</div>
+              </td>
+              <td>{{ lead.phone }}</td>
+              <td>{{ lead.service_type or "" }}</td>
+              <td>{{ lead.source or "" }}</td>
+              <td><span class="badge badge-soft">{{ lead.status }}</span></td>
+              <td>
+                <div class="d-flex gap-2 flex-wrap">
+
+                  <form action="/update_lead_status/{{ lead.id }}" method="post" class="d-flex gap-2">
+                    <select class="form-select form-select-sm" name="status">
+                      {% for s in ["New","Contacted","Scheduled","Won","Lost"] %}
+                        <option value="{{ s }}" {% if lead.status == s %}selected{% endif %}>{{ s }}</option>
+                      {% endfor %}
+                    </select>
+                    <button class="btn btn-sm btn-outline-primary" type="submit">Update</button>
+                  </form>
+
+                  <form action="/convert_lead/{{ lead.id }}" method="post" class="d-flex gap-2">
+                    <input class="form-control form-control-sm" name="scheduled_date" placeholder="YYYY-MM-DD">
+                    <input class="form-control form-control-sm" name="technician" placeholder="Tech">
+                    <button class="btn btn-sm btn-success" type="submit">Convert → Job</button>
+                  </form>
+
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Jobs -->
+    <div class="tab-pane fade" id="tab-jobs">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th><th>Customer</th><th>Status</th><th>Scheduled</th><th>Tech</th><th style="min-width:260px;">Invoice</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for job in jobs %}
+            <tr>
+              <td>{{ job.id }}</td>
+              <td class="fw-semibold">{{ job.customer_name }}</td>
+              <td>
+                <form action="/update_job_status/{{ job.id }}" method="post" class="d-flex gap-2">
+                  <select class="form-select form-select-sm" name="status">
+                    {% for s in ["Scheduled","In Progress","Completed","Canceled"] %}
+                      <option value="{{ s }}" {% if job.status == s %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                  </select>
+                  <button class="btn btn-sm btn-outline-primary" type="submit">Save</button>
+                </form>
+              </td>
+              <td>{{ job.scheduled_date or "" }}</td>
+              <td>{{ job.technician or "" }}</td>
+              <td>
+                <form action="/create_invoice/{{ job.id }}" method="post" class="d-flex gap-2">
+                  <input class="form-control form-control-sm" type="number" step="0.01" name="amount" placeholder="Amount" required>
+                  <input class="form-control form-control-sm" name="due_date" placeholder="Due YYYY-MM-DD">
+                  <button class="btn btn-sm btn-primary" type="submit">Create</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Invoices -->
+    <div class="tab-pane fade" id="tab-invoices">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th><th>Job</th><th>Amount</th><th>Status</th><th>Due</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for inv in invoices %}
+              {% set is_overdue = (inv.status == "Unpaid" and inv.due_date and inv.due_date < today) %}
+              <tr class="{% if is_overdue %}table-danger{% endif %}">
+                <td>{{ inv.id }}</td>
+                <td>{{ inv.job_id }}</td>
+                <td>${{ "%.2f"|format(inv.amount) }}</td>
+                <td>
+                  <span class="badge {% if inv.status == 'Paid' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                    {{ inv.status }}
+                  </span>
+                </td>
+                <td>{{ inv.due_date or "" }}</td>
+                <td>
+                  {% if inv.status == "Unpaid" %}
+                    <form action="/mark_paid/{{ inv.id }}" method="post">
+                      <button class="btn btn-sm btn-success" type="submit">Mark Paid</button>
+                    </form>
+                  {% else %}
+                    <span class="text-muted small">Paid</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="text-muted small">Red rows = overdue unpaid invoices.</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
