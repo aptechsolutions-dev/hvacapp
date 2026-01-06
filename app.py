@@ -107,6 +107,7 @@ def init_db():
         # If you had data before Phase 1, it might have NULL company_id.
         # We'll assign everything to the first company if it exists (or later during setup).
         conn.commit()
+        init_db()
 
 
 def parse_date_yyyy_mm_dd(s: str) -> str | None:
@@ -444,12 +445,13 @@ def mark_paid(invoice_id: int):
         conn.commit()
     return redirect(url_for("dashboard"))
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    return render_template("login.html")
+
 
 if __name__ == "__main__":
-    init_db()
     import os
     port = int(os.environ.get("PORT", 5001))
     app.run(host="0.0.0.0", port=port, debug=False)
+
+
+
+
