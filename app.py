@@ -48,7 +48,7 @@ def init_db():
         conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                company_id INTEGER,
+                company_id INTEGER ,
                 username TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
                 role TEXT NOT NULL DEFAULT 'admin',
@@ -114,8 +114,12 @@ def init_db():
 
 def ensure_super_admin():
     with get_db() as conn:
-        # 1) Make sure the "owner" company exists
-        row = conn.execute("SELECT id FROM companies WHERE name=?", ("APtech Solutions",)).fetchone()
+        # Ensure owner company exists
+        row = conn.execute(
+            "SELECT id FROM companies WHERE name=?",
+            ("APtech Solutions",)
+        ).fetchone()
+
         if row:
             owner_company_id = row["id"]
         else:
@@ -124,30 +128,36 @@ def ensure_super_admin():
                 ("APtech Solutions", datetime.now().isoformat())
             )
             conn.commit()
-            owner_company_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+            owner_company_id = conn.execute(
+                "SELECT last_insert_rowid() AS id"
+            ).fetchone()["id"]
 
-        # 2) Make sure super admin exists
+        # Ensure super admin exists
         exists = conn.execute(
             "SELECT 1 FROM users WHERE role='super_admin' LIMIT 1"
         ).fetchone()
 
-        if not exists:
-            ppassword = os.environ.get("SUPER_ADMIN_PASSWORD")
+        if exists:
+            return  # already created
+
+        password = os.environ.get("SUPER_ADMIN_PASSWORD")
         if not password:
-    raise RuntimeError("SUPER_ADMIN_PASSWORD is not set")
-            conn.execute(
-                """
-                INSERT INTO users (company_id, username, password_hash, role, created_at)
-                VALUES (?, ?, ?, 'super_admin', ?)
-                """,
-                (
-                    owner_company_id,
-                    "aptech_owner",
-                    generate_password_hash(password),
-                    datetime.now().isoformat()
-                )
+            raise RuntimeError("SUPER_ADMIN_PASSWORD is not set")
+
+        conn.execute(
+            """
+            INSERT INTO users (company_id, username, password_hash, role, created_at)
+            VALUES (?, ?, ?, 'super_admin', ?)
+            """,
+            (
+                owner_company_id,
+                "aptech_owner",
+                generate_password_hash(password),
+                datetime.now().isoformat()
             )
-            conn.commit()
+        )
+        conn.commit()
+
 
 
 
