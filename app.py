@@ -10,8 +10,8 @@ import os
 app = Flask(__name__)
 app.secret_key = "change-this-to-a-long-random-string"
 
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "hvacapp.db"
+DB_PATH = Path(os.environ.get("DB_PATH", "/var/data/hvacapp.db"))
+
 
 
 # -----------------------------
