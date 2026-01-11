@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Owner – Companies</title>
+</head>
+<body>
+    <h1>All Companies</h1>
+
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>ID</th>
+            <th>Company</th>
+            <th>Users</th>
+            <th>Signed Up</th>
+        </tr>
+
+        {% for c in companies %}
+        <tr>
+            <td>{{ c.id }}</td>
+            <td>{{ c.name }}</td>
+            <td>{{ c.user_count }}</td>
+            <td>{{ c.created_at }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <p><a href="/">Back to dashboard</a></p>
+</body>
+</html>

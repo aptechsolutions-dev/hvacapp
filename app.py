@@ -203,6 +203,24 @@ def any_users_exist() -> bool:
         row = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()
         return row["c"] > 0
 
+def super_admin_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("user_id"):
+            return redirect(url_for("login"))
+
+        with get_db() as conn:
+            user = conn.execute(
+                "SELECT role FROM users WHERE id=?",
+                (session["user_id"],)
+            ).fetchone()
+
+        if not user or user["role"] != "super_admin":
+            abort(403)
+
+        return view_func(*args, **kwargs)
+    return wrapper
+
 
 # -----------------------------
 # One-time setup (creates first company + admin)
@@ -355,6 +373,30 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+# -----------------------------
+# Owner / Super Admin
+# -----------------------------
+@app.route("/owner/companies")
+@super_admin_required
+def owner_companies():
+    with get_db() as conn:
+        companies = conn.execute("""
+            SELECT
+                c.id,
+                c.name,
+                c.created_at,
+                COUNT(u.id) AS user_count
+            FROM companies c
+            LEFT JOIN users u ON u.company_id = c.id
+            GROUP BY c.id
+            ORDER BY c.created_at DESC
+        """).fetchall()
+
+    return render_template(
+        "owner_companies.html",
+        companies=companies
+    )
 
 
 # -----------------------------
