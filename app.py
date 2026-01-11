@@ -248,6 +248,74 @@ def setup():
 
     return render_template("setup.html", error=error)
 
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    """
+    Public signup:
+    - creates a new company
+    - creates the company's first admin user
+    - logs them in
+    """
+    error = None
+
+    if request.method == "POST":
+        company_name = (request.form.get("company_name") or "").strip()
+        username = (request.form.get("username") or "").strip()
+        password = (request.form.get("password") or "").strip()
+
+        if not company_name or not username or not password:
+            error = "All fields are required."
+            return render_template("signup.html", error=error)
+
+        # Basic safety: prevent someone signing up with your owner username
+        if username.lower() == "aptech_owner":
+            error = "That username is reserved. Please choose another."
+            return render_template("signup.html", error=error)
+
+        with get_db() as conn:
+            # Make sure username is unique
+            existing = conn.execute(
+                "SELECT 1 FROM users WHERE username=?",
+                (username,)
+            ).fetchone()
+
+            if existing:
+                error = "That username is already taken. Try another."
+                return render_template("signup.html", error=error)
+
+            # Create company
+            conn.execute(
+                "INSERT INTO companies (name, created_at) VALUES (?, ?)",
+                (company_name, datetime.now().isoformat())
+            )
+            conn.commit()
+            company_id = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+
+            # Create admin user for that company
+            conn.execute(
+                """
+                INSERT INTO users (company_id, username, password_hash, role, created_at)
+                VALUES (?, ?, ?, 'admin', ?)
+                """,
+                (company_id, username, generate_password_hash(password), datetime.now().isoformat())
+            )
+            conn.commit()
+
+            # Log them in
+            user = conn.execute(
+                "SELECT * FROM users WHERE username=?",
+                (username,)
+            ).fetchone()
+
+        session.clear()
+        session["user_id"] = user["id"]
+        session["company_id"] = user["company_id"]
+
+        return redirect(url_for("dashboard"))
+
+    return render_template("signup.html", error=error)
+
+
 
 # -----------------------------
 # Login / Logout
