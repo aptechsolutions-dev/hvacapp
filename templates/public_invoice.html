@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+  <title>Invoice {{ invoice.id }}</title>
+  <meta charset="utf-8">
+</head>
+<body>
+  <h1>{{ invoice.company_name }}</h1>
+
+  <p><strong>Customer:</strong> {{ invoice.customer_name }}</p>
+  <p><strong>Invoice #:</strong> {{ invoice.id }}</p>
+  <p><strong>Amount:</strong> ${{ "%.2f"|format(invoice.amount) }}</p>
+  <p><strong>Status:</strong> {{ invoice.status }}</p>
+  <p><strong>Due Date:</strong> {{ invoice.due_date }}</p>
+
+  {% if invoice.status == "Paid" %}
+    <p style="color: green;">✅ Paid</p>
+  {% else %}
+    <p style="color: red;">❌ Not Paid</p>
+  {% endif %}
+</body>
+</html>

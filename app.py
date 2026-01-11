@@ -6,6 +6,8 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import os
+import secrets
+
 
 app = Flask(__name__)
 app.secret_key = "change-this-to-a-long-random-string"
@@ -100,6 +102,10 @@ def init_db():
         ensure_column(conn, "jobs", "notes", "TEXT")
 
         ensure_column(conn, "invoices", "due_date", "TEXT")
+        ensure_column(conn, "invoices", "public_token", "TEXT")
+        ensure_column(conn, "invoices", "customer_email", "TEXT")
+
+
 
         # Multi-tenant scoping columns
         ensure_column(conn, "leads", "company_id", "INTEGER")
@@ -581,21 +587,51 @@ def create_invoice(job_id: int):
     except ValueError:
         abort(400, "Amount must be a number.")
 
+    token = secrets.token_urlsafe(24)
+
     with get_db() as conn:
-        job = conn.execute("SELECT * FROM jobs WHERE id=? AND company_id=?", (job_id, cid)).fetchone()
+        job = conn.execute(
+            "SELECT * FROM jobs WHERE id=? AND company_id=?",
+            (job_id, cid)
+        ).fetchone()
+
         if not job:
             abort(404)
 
         conn.execute(
             """
-            INSERT INTO invoices (company_id, job_id, amount, status, due_date, created_at, paid_at)
-            VALUES (?, ?, ?, 'Unpaid', ?, ?, NULL)
+            INSERT INTO invoices (
+                company_id, job_id, amount, status, due_date, created_at, paid_at, public_token
+            )
+            VALUES (?, ?, ?, 'Unpaid', ?, ?, NULL, ?)
             """,
-            (cid, job_id, amount, due_date, datetime.now().isoformat()),
+            (cid, job_id, amount, due_date, datetime.now().isoformat(), token)
         )
         conn.commit()
 
     return redirect(url_for("dashboard"))
+
+
+@app.route("/pay/<token>", methods=["GET"])
+def public_invoice(token: str):
+    with get_db() as conn:
+        inv = conn.execute(
+            """
+            SELECT i.*, c.name AS company_name, j.customer_name
+            FROM invoices i
+            JOIN companies c ON c.id = i.company_id
+            JOIN jobs j ON j.id = i.job_id
+            WHERE i.public_token = ?
+            LIMIT 1
+            """,
+            (token,),
+        ).fetchone()
+
+    if not inv:
+        abort(404)
+
+    return render_template("public_invoice.html", invoice=inv)
+
 
 
 @app.route("/mark_paid/<int:invoice_id>", methods=["POST"])
