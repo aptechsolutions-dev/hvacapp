@@ -109,7 +109,7 @@ def init_db():
         
         # Upgrade columns (safe migrations)
         ensure_column(conn, "leads", "service_type", "TEXT")
-        ensure_column(conn, "leads", "source", "TEXT")
+        ensure_column(conn, "leads", "email", "TEXT")
         ensure_column(conn, "leads", "address", "TEXT")
         ensure_column(conn, "leads", "notes", "TEXT")
 
@@ -513,7 +513,7 @@ def add_lead():
     name = request.form.get("name", "").strip()
     phone = request.form.get("phone", "").strip()
     service_type = request.form.get("service_type", "").strip() or None
-    source = request.form.get("source", "").strip() or None
+    email = request.form.get("email", "").strip() or None
     address = request.form.get("address", "").strip() or None
     notes = request.form.get("notes", "").strip() or None
 
@@ -523,10 +523,10 @@ def add_lead():
     with get_db() as conn:
         conn.execute(
             """
-            INSERT INTO leads (company_id, name, phone, service_type, source, address, notes, status, created_at)
+            INSERT INTO leads (company_id, name, phone, service_type, email, address, notes, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, 'New', ?)
             """,
-            (cid, name, phone, service_type, source, address, notes, datetime.now().isoformat()),
+            (cid, name, phone, service_type, email, address, notes, datetime.now().isoformat()),
         )
         conn.commit()
 
