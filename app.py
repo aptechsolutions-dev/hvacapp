@@ -90,7 +90,23 @@ def init_db():
                 FOREIGN KEY (job_id) REFERENCES jobs(id)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL,
+                job_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'todo',
+                due_date TEXT,
+                assigned_to TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(company_id) REFERENCES companies(id),
+                FOREIGN KEY(job_id) REFERENCES jobs(id)
+            )
+        """)
 
+        conn.commit()
+        
         # Upgrade columns (safe migrations)
         ensure_column(conn, "leads", "service_type", "TEXT")
         ensure_column(conn, "leads", "source", "TEXT")
@@ -115,22 +131,6 @@ def init_db():
         # If you had data before Phase 1, it might have NULL company_id.
         # We'll assign everything to the first company if it exists (or later during setup).
         conn.commit()
-
-conn.execute("""
-    CREATE TABLE IF NOT EXISTS tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        company_id INTEGER NOT NULL,
-        job_id INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'todo',  -- todo / doing / done
-        due_date TEXT,
-        assigned_to TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY(company_id) REFERENCES companies(id),
-        FOREIGN KEY(job_id) REFERENCES jobs(id)
-    )
-""")
-
         
 
 
@@ -670,14 +670,6 @@ def mark_paid(invoice_id: int):
         conn.commit()
     return redirect(url_for("dashboard"))
 
-
-
-if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 5001))
-    app.run(host="0.0.0.0", port=port, debug=False)
-
-
 @app.route("/jobs/<int:job_id>/tasks/add", methods=["POST"])
 @login_required
 def add_task(job_id: int):
@@ -730,5 +722,13 @@ def toggle_task(task_id: int):
         conn.commit()
 
     return redirect(url_for("dashboard"))
+
+
+
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
