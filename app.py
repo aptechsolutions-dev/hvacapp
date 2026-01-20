@@ -115,6 +115,22 @@ def init_db():
         # If you had data before Phase 1, it might have NULL company_id.
         # We'll assign everything to the first company if it exists (or later during setup).
         conn.commit()
+
+conn.execute("""
+    CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_id INTEGER NOT NULL,
+        job_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'todo',  -- todo / doing / done
+        due_date TEXT,
+        assigned_to TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(company_id) REFERENCES companies(id),
+        FOREIGN KEY(job_id) REFERENCES jobs(id)
+    )
+""")
+
         
 
 
@@ -426,6 +442,10 @@ def dashboard():
             "SELECT * FROM jobs WHERE company_id=? ORDER BY id DESC", (cid,)
         ).fetchall()
 
+        tasks = conn.execute(
+            "SELECT * FROM tasks WHERE company_id=? ORDER BY id DESC", (cid,)
+        ).fetchall()
+
         invoices = conn.execute(
             "SELECT * FROM invoices WHERE company_id=? ORDER BY id DESC", (cid,)
         ).fetchall()
@@ -471,6 +491,7 @@ def dashboard():
         company_name=company_name,
         leads=leads,
         jobs=jobs,
+        tasks=tasks,
         invoices=invoices,
         missed_leads=missed_leads,
         overdue_invoices=overdue_invoices,
@@ -657,5 +678,57 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=port, debug=False)
 
 
+@app.route("/jobs/<int:job_id>/tasks/add", methods=["POST"])
+@login_required
+def add_task(job_id: int):
+    cid = current_company_id()
+    title = (request.form.get("title") or "").strip()
+    due_date = parse_date_yyyy_mm_dd(request.form.get("due_date", ""))
+    assigned_to = (request.form.get("assigned_to") or "").strip() or None
+
+    if not title:
+        abort(400, "Task title is required.")
+
+    with get_db() as conn:
+        job = conn.execute(
+            "SELECT id FROM jobs WHERE id=? AND company_id=?",
+            (job_id, cid),
+        ).fetchone()
+        if not job:
+            abort(404)
+
+        conn.execute(
+            """
+            INSERT INTO tasks (company_id, job_id, title, status, due_date, assigned_to, created_at)
+            VALUES (?, ?, ?, 'todo', ?, ?, ?)
+            """,
+            (cid, job_id, title, due_date, assigned_to, datetime.now().isoformat()),
+        )
+        conn.commit()
+
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/tasks/<int:task_id>/toggle", methods=["POST"])
+@login_required
+def toggle_task(task_id: int):
+    cid = current_company_id()
+    with get_db() as conn:
+        task = conn.execute(
+            "SELECT id, status FROM tasks WHERE id=? AND company_id=?",
+            (task_id, cid),
+        ).fetchone()
+        if not task:
+            abort(404)
+
+        new_status = "done" if task["status"] != "done" else "todo"
+
+        conn.execute(
+            "UPDATE tasks SET status=? WHERE id=? AND company_id=?",
+            (new_status, task_id, cid),
+        )
+        conn.commit()
+
+    return redirect(url_for("dashboard"))
 
 
