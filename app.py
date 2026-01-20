@@ -105,7 +105,7 @@ def init_db():
             )
         """)
 
-        conn.commit()
+       
         
         # Upgrade columns (safe migrations)
         ensure_column(conn, "leads", "service_type", "TEXT")
